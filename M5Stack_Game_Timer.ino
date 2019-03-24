@@ -7,6 +7,9 @@
 #define JST 3600* 9
 #define DELAY_CONNECTION 100
 
+static time_t start_time = 0;
+static time_t pre_min = 0;
+
 void setupWiFi(void)
 {
     int ret, i;
@@ -29,50 +32,109 @@ void setupWiFi(void)
 }
 
 void setup() {
-  M5.begin();
-  M5.Lcd.fillScreen(BLACK);
-  M5.Lcd.setTextColor(GREEN);
+    M5.begin();
+    M5.Lcd.fillScreen(BLACK);
+    M5.Lcd.setTextColor(GREEN);
   
-  Serial.begin(115200);
-  delay(100);
-  Serial.print("\n\nStart\n");
+    Serial.begin(115200);
+    delay(100);
+    Serial.print("\n\nStart\n");
  
-  setupWiFi();
-  configTime( JST, 0, "ntp.nict.jp", "ntp.jst.mfeed.ad.jp");
+    setupWiFi();
+    configTime( JST, 0, "ntp.nict.jp", "ntp.jst.mfeed.ad.jp");
 }
- 
-void loop() {
-  time_t t;
-  struct tm *tm;
-  static const char *wd[7] = {"Sun","Mon","Tue","Wed","Thr","Fri","Sat"};
 
-  M5.Lcd.clear(BLACK);
-  M5.Lcd.setCursor(1, 0);
-   
-  t = time(NULL);
-  tm = localtime(&t);
-  Serial.printf(" %04d/%02d/%02d(%s) %02d:%02d:%02d\n",
+void displayTime(time_t t)
+{
+    struct tm *tm;
+    static const char *wd[7] = {"Sun","Mon","Tue","Wed","Thr","Fri","Sat"};
+
+    tm = localtime(&t);
+    Serial.printf(" %04d/%02d/%02d(%s) %02d:%02d:%02d\n",
         tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday,
         wd[tm->tm_wday],
         tm->tm_hour, tm->tm_min, tm->tm_sec);
-  char c_hour[5];
-  snprintf(c_hour, sizeof(c_hour), "%02d", tm->tm_hour);
-  char c_min[5];
-  snprintf(c_min, sizeof(c_min), "%02d", tm->tm_min);
-  char c_sec[5];
-  snprintf(c_sec, sizeof(c_sec), "%02d", tm->tm_sec);
+    char c_hour[5];
+    snprintf(c_hour, sizeof(c_hour), "%02d", tm->tm_hour);
+    char c_min[5];
+    snprintf(c_min, sizeof(c_min), "%02d", tm->tm_min);
+    char c_sec[5];
+    snprintf(c_sec, sizeof(c_sec), "%02d", tm->tm_sec);
   
-  M5.Lcd.setTextSize(3);
-  M5.Lcd.println(String(tm->tm_year+1900, DEC) + "/"
+    
+    M5.Lcd.setTextSize(3);
+    M5.Lcd.println(String(tm->tm_year+1900, DEC) + "/"
                + String(tm->tm_mon+1) + "/"
                + String(tm->tm_mday) + "("
                + String(wd[tm->tm_wday]) + ")");
 
-  M5.Lcd.setTextSize(5);
-  M5.Lcd.println(String(tm->tm_hour) + ":"
-               + String(tm->tm_min) + ":"
-               + String(tm->tm_sec)
+    M5.Lcd.setTextSize(5);
+    M5.Lcd.println(String(c_hour) + ":"
+               + String(c_min) + ":"
+               + String(c_sec)
                );
-  delay(1000);
+    
+}
 
+void setStartTime(time_t t)
+{
+    if(start_time == 0){
+        start_time = t;
+        Serial.println("set start_time");
+        struct tm *tm;
+        tm = localtime(&start_time);
+        Serial.printf("start %04d/%02d/%02d %02d:%02d:%02d\n",
+            tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday,
+            tm->tm_hour, tm->tm_min, tm->tm_sec);
+    }
+}
+
+uint32_t measureElapsedTime(time_t t)
+{
+    if(start_time == 0) return 0;
+    double elapsed_time = difftime(t, start_time);
+    uint32_t elapsed_min = (uint32_t)(elapsed_time / 60);
+    //Serial.printf("elapsed sec %f min %d\n", elapsed_time, elapsed_min);
+    return elapsed_min;
+}
+
+bool isUpdatedMin(time_t t)
+{
+    bool is_updated_min = false;
+    struct tm *tm;
+
+    tm = localtime(&t);
+    if(tm->tm_min != pre_min){
+        is_updated_min = true;
+    }
+    pre_min = tm->tm_min;
+    return is_updated_min; 
+}
+
+void loop() 
+{
+    time_t cur_time;
+    M5.update();
+
+    cur_time = time(NULL);
+
+    //button
+    if (M5.BtnA.wasPressed()){
+        setStartTime(cur_time);
+    }
+
+    uint32_t elapsed_min = measureElapsedTime(cur_time);
+    char c_elapsed_min[5];
+    snprintf(c_elapsed_min, sizeof(c_elapsed_min), "%03d", elapsed_min);
+
+    //update LCD
+    if(isUpdatedMin(cur_time)){
+        M5.Lcd.clear(BLACK);
+        M5.Lcd.setCursor(1, 0);
+        displayTime(cur_time);
+        M5.Lcd.setTextSize(5);
+        M5.Lcd.println(String(c_elapsed_min) + "[min]");
+    }
+
+    delay(1);
 }
