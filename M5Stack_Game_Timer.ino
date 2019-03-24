@@ -1,6 +1,7 @@
 #include <M5Stack.h>
 #include <WiFi.h>
 #include <esp_wifi.h>
+#include <WiFiClientSecure.h>
 #include <time.h>
 #include "config.h"
  
@@ -147,11 +148,44 @@ bool alertRemainTime(uint32_t remain_min)
 
     if(remain_min == 0){
         Serial.println("time over");
-
+        sendLineNotify();
         return true;
     }
 
     return false;
+}
+
+void sendLineNotify(void)
+{
+    WiFiClientSecure client;
+    Serial.println("Try");
+    //LineのAPIサーバに接続
+    if (!client.connect(line_host, 443)) {
+      Serial.println("Connection failed");
+      return;
+    }
+    Serial.println("Connected");
+    //リクエストを送信
+    String query = String("message=") + String(line_message);
+    String request = String("") +
+                 "POST /api/notify HTTP/1.1\r\n" +
+               "Host: " + line_host + "\r\n" +
+               "Authorization: Bearer " + line_token + "\r\n" +
+               "Content-Length: " + String(query.length()) +  "\r\n" + 
+               "Content-Type: application/x-www-form-urlencoded\r\n\r\n" +
+                query + "\r\n";
+    client.print(request);
+ 
+     //受信終了まで待つ 
+    while (client.connected()) {
+        String line = client.readStringUntil('\n');
+        if (line == "\r") {
+            break;
+        }
+    }
+  
+    String line = client.readStringUntil('\n');
+    Serial.println(line);
 }
 
 void loop() 
