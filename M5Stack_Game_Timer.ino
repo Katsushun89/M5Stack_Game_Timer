@@ -43,6 +43,8 @@ void setup() {
  
     setupWiFi();
     configTime( JST, 0, "ntp.nict.jp", "ntp.jst.mfeed.ad.jp");
+    
+    sendLineNotify("m5stack reset");
 }
 
 void displayTime(time_t t)
@@ -81,12 +83,12 @@ void setStartTime(time_t t)
 {
     if(start_time == 0){
         start_time = t;
-        Serial.println("set start_time");
         struct tm *tm;
         tm = localtime(&start_time);
-        Serial.printf("start %04d/%02d/%02d %02d:%02d:%02d\n",
+        Serial.printf("start timer %04d/%02d/%02d %02d:%02d:%02d\n",
             tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday,
             tm->tm_hour, tm->tm_min, tm->tm_sec);
+        sendLineNotify("start timer");
     }
 }
 
@@ -114,13 +116,19 @@ bool isUpdatedMin(time_t t)
 
 uint16_t getRemainTime(uint16_t elapsed_min)
 {
-    return GAME_TIMER_LIMIT - elapsed_min;
+    uint16_t remain = 0;
+    if(elapsed_min > GAME_TIMER_LIMIT){
+        remain = 0;
+    }else{
+        remain = GAME_TIMER_LIMIT - elapsed_min;
+    }
+    return remain;
 }
 
 bool alertRemainTime(uint32_t remain_min)
 {
     Serial.printf("alert remain_min %03d\n", remain_min);
-    Serial.printf("alert time %02d / %02d / %02d\n",
+    Serial.printf("alert time %02d -> %02d -> %02d[min]\n",
                     ALERT_REMAIN_MIN_1,
                     ALERT_REMAIN_MIN_2,
                     ALERT_REMAIN_MIN_3);
@@ -148,14 +156,14 @@ bool alertRemainTime(uint32_t remain_min)
 
     if(remain_min == 0){
         Serial.println("time over");
-        sendLineNotify();
+        sendLineNotify("time over");
         return true;
     }
 
     return false;
 }
 
-void sendLineNotify(void)
+void sendLineNotify(const char *line_message)
 {
     WiFiClientSecure client;
     Serial.println("Try");
