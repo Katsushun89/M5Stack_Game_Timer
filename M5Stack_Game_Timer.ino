@@ -89,7 +89,7 @@ void setStartTime(time_t t)
     }
 }
 
-uint32_t measureElapsedTime(time_t t)
+uint16_t measureElapsedTime(time_t t)
 {
     if(start_time == 0) return 0;
     double elapsed_time = difftime(t, start_time);
@@ -111,6 +111,49 @@ bool isUpdatedMin(time_t t)
     return is_updated_min; 
 }
 
+uint16_t getRemainTime(uint16_t elapsed_min)
+{
+    return GAME_TIMER_LIMIT - elapsed_min;
+}
+
+bool alertRemainTime(uint32_t remain_min)
+{
+    Serial.printf("alert remain_min %03d\n", remain_min);
+    Serial.printf("alert time %02d / %02d / %02d\n",
+                    ALERT_REMAIN_MIN_1,
+                    ALERT_REMAIN_MIN_2,
+                    ALERT_REMAIN_MIN_3);
+    
+    if(remain_min == ALERT_REMAIN_MIN_1){
+        Serial.println("alert 1");
+        M5.Lcd.setTextSize(5);
+        M5.Lcd.println("Alert1");
+        return true; 
+    }
+
+    if(remain_min == ALERT_REMAIN_MIN_2){
+        Serial.println("alert 2");
+        M5.Lcd.setTextSize(5);
+        M5.Lcd.println("Alert2");
+        return true; 
+    }
+
+    if(remain_min == ALERT_REMAIN_MIN_3){
+        Serial.println("alert 3");
+        M5.Lcd.setTextSize(5);
+        M5.Lcd.println("Alert3");
+        return true; 
+    }
+
+    if(remain_min == 0){
+        Serial.println("time over");
+
+        return true;
+    }
+
+    return false;
+}
+
 void loop() 
 {
     time_t cur_time;
@@ -123,17 +166,20 @@ void loop()
         setStartTime(cur_time);
     }
 
-    uint32_t elapsed_min = measureElapsedTime(cur_time);
-    char c_elapsed_min[5];
-    snprintf(c_elapsed_min, sizeof(c_elapsed_min), "%03d", elapsed_min);
+    uint16_t elapsed_min = measureElapsedTime(cur_time);
+    uint16_t remain_min = getRemainTime(elapsed_min);
+    char c_remain_min[5];
+    snprintf(c_remain_min, sizeof(c_remain_min), "%03d", remain_min);
 
     //update LCD
     if(isUpdatedMin(cur_time)){
         M5.Lcd.clear(BLACK);
         M5.Lcd.setCursor(1, 0);
+
         displayTime(cur_time);
         M5.Lcd.setTextSize(5);
-        M5.Lcd.println(String(c_elapsed_min) + "[min]");
+        M5.Lcd.println(String(c_remain_min) + "[min]");
+        alertRemainTime(remain_min);
     }
 
     delay(1);
