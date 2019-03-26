@@ -3,10 +3,15 @@
 #include <esp_wifi.h>
 #include <WiFiClientSecure.h>
 #include <time.h>
+#include <AquesTalkTTS.h>
 #include "config.h"
- 
+
 #define JST 3600* 9
 #define DELAY_CONNECTION 100
+
+// AquesTalk License Key
+// NULL or wrong value is just ignored
+const char* AQUESTALK_KEY = "XXXX-XXXX-XXXX-XXXX";
 
 static time_t start_time = 0;
 static time_t pre_min = 0;
@@ -32,6 +37,12 @@ void setupWiFi(void)
     Serial.println(WiFi.localIP());
 }
 
+void setupVoice(void)
+{
+  int iret = TTS.createK(AQUESTALK_KEY);
+  Serial.print("TTS.createK iret "); Serial.print(iret);
+}
+
 void setup() {
     M5.begin();
     M5.Lcd.fillScreen(BLACK);
@@ -43,8 +54,13 @@ void setup() {
  
     setupWiFi();
     configTime( JST, 0, "ntp.nict.jp", "ntp.jst.mfeed.ad.jp");
-    
-    sendLineNotify("m5stack reset");
+
+    setupVoice(); 
+
+    M5.Lcd.clear();
+    M5.Lcd.drawJpgFile(SD, "/game_start.jpg");
+
+    sendLineNotify("reset");
 }
 
 void displayTime(time_t t)
@@ -88,6 +104,7 @@ void setStartTime(time_t t)
         Serial.printf("start timer %04d/%02d/%02d %02d:%02d:%02d\n",
             tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday,
             tm->tm_hour, tm->tm_min, tm->tm_sec);
+        TTS.playK(voice_start_timer.c_str(), VOICE_SPEED);
         sendLineNotify("start timer");
     }
 }
@@ -137,6 +154,7 @@ bool alertRemainTime(uint32_t remain_min)
         Serial.println("alert 1");
         M5.Lcd.setTextSize(5);
         M5.Lcd.println("Alert1");
+        TTS.playK(voice_alert_1.c_str(), VOICE_SPEED);
         return true; 
     }
 
@@ -144,6 +162,7 @@ bool alertRemainTime(uint32_t remain_min)
         Serial.println("alert 2");
         M5.Lcd.setTextSize(5);
         M5.Lcd.println("Alert2");
+        TTS.playK(voice_alert_2.c_str(), VOICE_SPEED);
         return true; 
     }
 
@@ -151,11 +170,13 @@ bool alertRemainTime(uint32_t remain_min)
         Serial.println("alert 3");
         M5.Lcd.setTextSize(5);
         M5.Lcd.println("Alert3");
+        TTS.playK(voice_alert_3.c_str(), VOICE_SPEED);
         return true; 
     }
 
     if(remain_min == 0){
         Serial.println("time over");
+        TTS.playK(voice_timer_over.c_str(), VOICE_SPEED);
         sendLineNotify("time over");
         return true;
     }
@@ -215,12 +236,14 @@ void loop()
 
     //update LCD
     if(isUpdatedMin(cur_time)){
+        /*
         M5.Lcd.clear(BLACK);
         M5.Lcd.setCursor(1, 0);
 
         displayTime(cur_time);
         M5.Lcd.setTextSize(5);
         M5.Lcd.println(String(c_remain_min) + "[min]");
+*/
         alertRemainTime(remain_min);
     }
 
