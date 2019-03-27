@@ -8,6 +8,8 @@
 
 #define JST 3600* 9
 #define DELAY_CONNECTION 100
+#define CF_OL32 &Orbitron_Light_32
+#define GFXFF 1
 
 // AquesTalk License Key
 // NULL or wrong value is just ignored
@@ -15,6 +17,7 @@ const char* AQUESTALK_KEY = "XXXX-XXXX-XXXX-XXXX";
 
 static time_t start_time = 0;
 static time_t pre_min = 0;
+static bool is_set_start = false;
 
 void setupWiFi(void)
 {
@@ -98,6 +101,7 @@ void displayTime(time_t t)
 void setStartTime(time_t t)
 {
     if(start_time == 0){
+        is_set_start = true;
         start_time = t;
         struct tm *tm;
         tm = localtime(&start_time);
@@ -152,24 +156,18 @@ bool alertRemainTime(uint32_t remain_min)
     
     if(remain_min == ALERT_REMAIN_MIN_1){
         Serial.println("alert 1");
-        M5.Lcd.setTextSize(5);
-        M5.Lcd.println("Alert1");
         TTS.playK(voice_alert_1.c_str(), VOICE_SPEED);
         return true; 
     }
 
     if(remain_min == ALERT_REMAIN_MIN_2){
         Serial.println("alert 2");
-        M5.Lcd.setTextSize(5);
-        M5.Lcd.println("Alert2");
         TTS.playK(voice_alert_2.c_str(), VOICE_SPEED);
         return true; 
     }
 
     if(remain_min == ALERT_REMAIN_MIN_3){
         Serial.println("alert 3");
-        M5.Lcd.setTextSize(5);
-        M5.Lcd.println("Alert3");
         TTS.playK(voice_alert_3.c_str(), VOICE_SPEED);
         return true; 
     }
@@ -217,6 +215,20 @@ void sendLineNotify(const char *line_message)
     Serial.println(line);
 }
 
+void drawCount(uint8_t number)
+{
+    if(number == 0){
+        M5.Lcd.setTextColor(TFT_RED, TFT_BLACK);
+    }else{
+        M5.Lcd.setTextColor(TFT_WHITE, TFT_BLACK);
+    }
+    M5.Lcd.setTextPadding(5);
+    M5.Lcd.setTextSize(3);
+    M5.Lcd.setTextDatum(MC_DATUM);
+    M5.Lcd.setFreeFont(CF_OL32);
+    M5.Lcd.drawNumber(number, 160, 120, GFXFF);
+}
+
 void loop() 
 {
     time_t cur_time;
@@ -235,7 +247,7 @@ void loop()
     snprintf(c_remain_min, sizeof(c_remain_min), "%03d", remain_min);
 
     //update LCD
-    if(isUpdatedMin(cur_time)){
+    if(is_set_start && isUpdatedMin(cur_time)){
         /*
         M5.Lcd.clear(BLACK);
         M5.Lcd.setCursor(1, 0);
@@ -244,6 +256,9 @@ void loop()
         M5.Lcd.setTextSize(5);
         M5.Lcd.println(String(c_remain_min) + "[min]");
 */
+        //M5.Lcd.clear();
+        M5.Lcd.drawJpgFile(SD, "/game_count.jpg");
+        drawCount(remain_min);
         alertRemainTime(remain_min);
     }
 
